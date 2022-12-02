@@ -88,7 +88,7 @@ func (e *Exporter) Collect (ch chan<- prometheus.Metric) {
   defer e.mutex.Unlock()
   err := e.collect(ch)
   if err != nil {
-    level.Error(logger).Log("msg", "error scraping Homeplug", "err", err)
+    level.Error(logger).Log("msg", "Error scraping Homeplug", "err", err)
   }
 }
 
