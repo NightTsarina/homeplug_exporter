@@ -283,7 +283,7 @@ func main() {
   })
 
   if err := http.ListenAndServe(*listeningAddress, nil); err != nil {
-    level.Error(logger).Log("msg", "failed to bind HTTP server", "err", err)
+    level.Error(logger).Log("msg", "Failed to bind HTTP server", "err", err)
     os.Exit(1)
   }
 }
