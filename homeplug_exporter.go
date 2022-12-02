@@ -364,7 +364,7 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugFrame
       conn.SetReadDeadline(time.Now().Add(time.Second))
       n, addr, err := conn.ReadFrom(b)
       if err != nil {
-        level.Debug(logger).Log("msg", "failed to receive message", "err", err)
+        level.Debug(logger).Log("msg", "Failed to receive message", "err", err)
         break
       }
 
