@@ -371,7 +371,7 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugFrame
       var f ethernet.Frame
       err = (&f).UnmarshalBinary(b[:n])
       if err != nil {
-        level.Error(logger).Log("msg", "failed to unmarshal ethernet frame", "err", err)
+        level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err)
         continue
       }
 
