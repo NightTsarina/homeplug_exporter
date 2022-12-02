@@ -258,7 +258,7 @@ func main() {
 
   conn, err := raw.ListenPacket(iface, etherType, nil)
   if err != nil {
-    level.Error(logger).Log("msg", "failed to listen", "err", err)
+    level.Error(logger).Log("msg", "Failed to listen", "err", err)
     os.Exit(1)
   }
 
