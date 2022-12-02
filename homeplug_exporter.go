@@ -311,7 +311,7 @@ ChanLoop:
           ni = append(ni, n)
         }
       } else {
-        level.Error(logger).Log("msg", fmt.Sprintf("got unhandled mmetype: %v", h.MMEType))
+        level.Error(logger).Log("msg", fmt.Sprintf("Got unhandled mmetype: %v", h.MMEType))
       }
     case <- time.After(time.Second):
       break ChanLoop
