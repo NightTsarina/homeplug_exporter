@@ -252,7 +252,7 @@ func main() {
 
   iface, err := get_interface_or_default(*interfaceName)
   if err != nil {
-    level.Error(logger).Log("msg", "failed to get interface", "err", err)
+    level.Error(logger).Log("msg", "Failed to get interface", "err", err)
     os.Exit(1)
   }
 
