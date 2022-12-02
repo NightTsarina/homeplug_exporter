@@ -306,7 +306,7 @@ ChanLoop:
         var n HomeplugNetworkInfo
         err := (&n).UnmarshalBinary(h.Payload)
         if err != nil{
-          level.Error(logger).Log("msg", "failed to unmarshal network info frame", "err", err)
+          level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
         } else {
           ni = append(ni, n)
         }
