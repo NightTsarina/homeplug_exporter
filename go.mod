@@ -1,4 +1,4 @@
-module github.com/brandond/homeplug_exporter
+module github.com/nighttsarina/homeplug_exporter
 
 go 1.14
 
