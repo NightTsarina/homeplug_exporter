@@ -4,8 +4,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"net"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 type macAddressValue struct{ v *net.HardwareAddr }
@@ -31,9 +32,13 @@ func (f *macAddressValue) Set(s string) error {
 	return err
 }
 
-func (f *macAddressValue) Get() interface{} { return (net.HardwareAddr)(*f.v) }
+func (f *macAddressValue) Get() interface{} {
+	return (net.HardwareAddr)(*f.v)
+}
 
-func (f *macAddressValue) String() string { return fmt.Sprintf("%v", *f.v) }
+func (f *macAddressValue) String() string {
+	return fmt.Sprintf("%v", *f.v)
+}
 
 func MacAddress(s kingpin.Settings) (target *net.HardwareAddr) {
 	target = &net.HardwareAddr{}

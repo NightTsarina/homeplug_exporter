@@ -133,7 +133,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		log.Debugf("Network found: %s", &ns)
+		level.Debug(logger).Log("msg", fmt.Sprintf("Network found: %s", &ns))
 		o += size
 	}
 
@@ -146,7 +146,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Stations = append(n.Stations, ss)
-		log.Debugf("Station found: %s", &ss)
+		level.Debug(logger).Log("msg", fmt.Sprintf("Station found: %s", &ss))
 		o += size
 	}
 
