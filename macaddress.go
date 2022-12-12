@@ -3,45 +3,45 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-type macAddressValue struct{ v *net.HardwareAddr }
+var (
+	bcastMAC = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	localMAC = net.HardwareAddr{0x00, 0xb0, 0x52, 0x00, 0x00, 0x01}
+)
 
-func newMacAddressValue(p *net.HardwareAddr) *macAddressValue {
-	return &macAddressValue{p}
-}
+type macAddressValue net.HardwareAddr
 
-func (f *macAddressValue) Set(s string) error {
+func (m *macAddressValue) Set(s string) error {
 	if s == "broadcast" || s == "all" {
-		s = "ff:ff:ff:ff:ff:ff"
+		*m = (macAddressValue)(bcastMAC)
+	} else if s == "local" {
+		*m = (macAddressValue)(localMAC)
+	} else {
+		v, err := net.ParseMAC(s)
+		if err != nil {
+			return err
+		} else if len(v) != 6 {
+			return errors.New("Invalid address length")
+		}
+		*m = (macAddressValue)(v)
 	}
-	if s == "local" {
-		s = "00:b0:52:00:00:01"
-	}
-	v, err := net.ParseMAC(s)
-	if err == nil && len(v) != 6 {
-		return errors.New("Invalid address length")
-	}
-	if err == nil {
-		*f.v = (net.HardwareAddr)(v)
-	}
-	return err
+	return nil
 }
 
-func (f *macAddressValue) Get() interface{} {
-	return (net.HardwareAddr)(*f.v)
+func (m *macAddressValue) Get() interface{} {
+	return *m
 }
 
-func (f *macAddressValue) String() string {
-	return fmt.Sprintf("%v", *f.v)
+func (m *macAddressValue) String() string {
+	return m.String()
 }
 
 func MacAddress(s kingpin.Settings) (target *net.HardwareAddr) {
 	target = &net.HardwareAddr{}
-	s.SetValue(newMacAddressValue(target))
+	s.SetValue((*macAddressValue)(target))
 	return
 }

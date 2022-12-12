@@ -279,13 +279,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	dest := net.HardwareAddr((*destAddress)[0:6])
-
-	exporter := NewExporter(iface, conn, dest)
+	exporter := NewExporter(iface, conn, *destAddress)
 	prometheus.MustRegister(exporter)
 	prometheus.MustRegister(version.NewCollector("homeplug_exporter"))
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", dest.String(), iface.Name))
+	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", destAddress.String(), iface.Name))
 	level.Info(logger).Log("msg", fmt.Sprintf("Starting Server: %s", *listeningAddress))
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
