@@ -133,7 +133,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		level.Debug(logger).Log("msg", fmt.Sprintf("Network found: %s", &ns))
+		level.Debug(logger).Log("msg", "Network found", "network", &ns)
 		o += size
 	}
 
@@ -146,7 +146,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Stations = append(n.Stations, ss)
-		level.Debug(logger).Log("msg", fmt.Sprintf("Station found: %s", &ss))
+		level.Debug(logger).Log("msg", "Station found", "station", &ss)
 		o += size
 	}
 
@@ -283,7 +283,7 @@ func main() {
 	prometheus.MustRegister(exporter)
 	prometheus.MustRegister(version.NewCollector("homeplug_exporter"))
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", destAddress.String(), iface.Name))
+	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", destAddress, iface.Name))
 	level.Info(logger).Log("msg", fmt.Sprintf("Starting Server: %s", *listeningAddress))
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())

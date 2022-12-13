@@ -25,7 +25,7 @@ func (m *macAddressValue) Set(s string) error {
 		if err != nil {
 			return err
 		} else if len(v) != 6 {
-			return errors.New("Invalid address length")
+			return errors.New("invalid address length")
 		}
 		*m = (macAddressValue)(v)
 	}
