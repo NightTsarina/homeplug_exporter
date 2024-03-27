@@ -49,9 +49,10 @@ of these aliases:
     address but remote and foreign devices do not.
 
 Note that the default destination (`local`) will only find devices on the near
-side of the PLC connection. If you want to query devices on the far side of the
-connection, you need to either specify their MAC address, or use the
-`broadcast` alias.
+side of a PLC connection.
+
+Once a reply is obtained from a device, the exporter queries directly all other
+devices connected to the same HomePlug network.
 
 
 [^1]: A "local device" is any device at the near end of a PLC connection.  
@@ -88,10 +89,13 @@ homeplug_exporter_build_info{branch="main",goversion="go1.22.1",revision="",vers
 # HELP homeplug_network_info Logical network information
 # TYPE homeplug_network_info gauge
 homeplug_network_info{cco_addr="de:ad:be:ef:00:01",cco_tei="1",device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",role="CCO",snid="6",tei="1"} 1
+homeplug_network_info{cco_addr="de:ad:be:ef:00:01",cco_tei="1",device_addr="de:ad:be:ef:00:02",nid="52:de:ad:be:ef:00:01",role="STA",snid="6",tei="2"} 1
 # HELP homeplug_station_rx_rate_bytes Average PHY Rx data rate
 # TYPE homeplug_station_rx_rate_bytes gauge
 homeplug_station_rx_rate_bytes{device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:02"} 1.86e+07
+homeplug_station_rx_rate_bytes{device_addr="de:ad:be:ef:00:02",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:01"} 1.18e+06
 # HELP homeplug_station_tx_rate_bytes Average PHY Tx data rate
 # TYPE homeplug_station_tx_rate_bytes gauge
 homeplug_station_tx_rate_bytes{device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:02"} 1.18e+06
+homeplug_station_tx_rate_bytes{device_addr="de:ad:be:ef:00:02",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:01"} 1.86e+07
 ```
