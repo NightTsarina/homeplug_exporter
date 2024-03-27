@@ -83,10 +83,15 @@ docker run --rm --detach --name=homeplug_exporter --net=host homeplug_exporter
 ```
 # HELP homeplug_exporter_build_info A metric with a constant '1' value labeled by version, revision, branch, and goversion from which homeplug_exporter was built.
 # TYPE homeplug_exporter_build_info gauge
-# HELP homeplug_network_id Logical network information
-# TYPE homeplug_network_id gauge
+homeplug_exporter_build_info{branch="main",goversion="go1.22.1",revision="",version="0.4.0"} 1
+
+# HELP homeplug_network_info Logical network information
+# TYPE homeplug_network_info gauge
+homeplug_network_info{cco_addr="de:ad:be:ef:00:01",cco_tei="1",device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",role="CCO",snid="6",tei="1"} 1
 # HELP homeplug_station_rx_rate_bytes Average PHY Rx data rate
 # TYPE homeplug_station_rx_rate_bytes gauge
+homeplug_station_rx_rate_bytes{device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:02"} 1.86e+07
 # HELP homeplug_station_tx_rate_bytes Average PHY Tx data rate
 # TYPE homeplug_station_tx_rate_bytes gauge
+homeplug_station_tx_rate_bytes{device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:02"} 1.18e+06
 ```
