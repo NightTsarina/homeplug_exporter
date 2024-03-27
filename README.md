@@ -20,7 +20,8 @@ Flags:
       --version              Show application version.
 ```
 
-Tested with TP-Link TL-PA4010, but should work with any device that supports HomePlug AV or better.
+Tested with TP-Link TL-PA4010, but should work with any device using a Qualcomm
+Atheros chipset such as QCA6410, QCA7000, and QCA7420.
 
 The default destination MAC address (`local`) will elicit a response from any
 HomePlug devices on the local Layer 2 network segment.  This will NOT find
@@ -46,13 +47,24 @@ A foreign device is any device not manufactured by Atheros.
 
 # Running
 
+## Locally
+
+The exporter needs to access raw sockets, so it needs to be run as root, or
+with `cap_net_raw` capability. To avoid running it as root, set the
+capabilities on the binary as follows:
+
+```
+sudo setcap cap_net_raw=eip /path/to/binary
+```
+
 ## Using Docker
 
 **NOTE:** The HomePlug protocol uses raw ethernet frames, and must be run with `--net=host`
 on the same Layer 2 network segment as at least one HomePlug device.
 
 ```
-docker run --rm --detach --name=homeplug_exporter --net=host brandond/homeplug_exporter
+docker build -t homeplug_exporter .
+docker run --rm --detach --name=homeplug_exporter --net=host homeplug_exporter
 ```
 
 # Details
