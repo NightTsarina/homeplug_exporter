@@ -410,11 +410,11 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 				"msg", "Network found",
 				"device_addr", hni.Address,
 				"nid", network.NetworkID,
-				"snid", fmt.Sprintf("%d", network.ShortID),
-				"tei", fmt.Sprintf("%d", network.TEI),
+				"snid", network.ShortID,
+				"tei", network.TEI,
 				"role", stRole[network.Role],
 				"cco_addr", network.CCoAddress,
-				"cco_tei", fmt.Sprintf("%d", network.CCoTEI),
+				"cco_tei", network.CCoTEI,
 			)
 		}
 		for _, station := range hni.Stations {
@@ -423,8 +423,8 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 				"device_addr", hni.Address,
 				"peer_addr", station.Address,
 				"bda", station.BridgedAddress,
-				"tx_rate", fmt.Sprintf("%d", station.TxRate),
-				"rx_rate", fmt.Sprintf("%d", station.RxRate),
+				"tx_rate", station.TxRate,
+				"rx_rate", station.RxRate,
 			)
 		}
 
