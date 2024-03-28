@@ -131,12 +131,6 @@ type HomeplugNetworkInfo struct {
 	Stations []HomeplugStationStatus
 }
 
-func (n *HomeplugNetworkInfo) String() string {
-	return fmt.Sprintf(
-		"Device: %s, Networks: %v, Stations: %v",
-		n.Address, n.Networks, n.Stations)
-}
-
 func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 	o := 0
 
@@ -149,7 +143,6 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		level.Debug(logger).Log("msg", "Network found", "network", &ns)
 		o += size
 	}
 
@@ -162,7 +155,6 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Stations = append(n.Stations, ss)
-		level.Debug(logger).Log("msg", "Station found", "station", &ss)
 		o += size
 	}
 
@@ -176,13 +168,6 @@ type HomeplugNetworkStatus struct {
 	Role       uint8
 	CCoAddress net.HardwareAddr
 	CCoTEI     uint8
-}
-
-func (s *HomeplugNetworkStatus) String() string {
-	role := stRole[s.Role]
-	return fmt.Sprintf(
-		"NID: %s, SNID: %x, TEI: %d, Role: %s, CCo: %s, CCoTEI: %d",
-		s.NetworkID, s.ShortID, s.TEI, role, s.CCoAddress, s.CCoTEI)
 }
 
 func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
@@ -206,12 +191,6 @@ type HomeplugStationStatus struct {
 	RxRate         uint8
 }
 
-func (s *HomeplugStationStatus) String() string {
-	return fmt.Sprintf(
-		"MAC: %s, TEI: %d, BDA: %s, RX: %d Mbit/s, TX: %d Mbit/s",
-		s.Address, s.TEI, s.BridgedAddress, s.RxRate, s.TxRate)
-}
-
 func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 	if len(b) < 15 {
 		return 0, io.ErrUnexpectedEOF
@@ -229,12 +208,6 @@ type HomeplugFrame struct {
 	MMEType [2]byte
 	Vendor  [3]byte
 	Payload []byte
-}
-
-func (h *HomeplugFrame) String() string {
-	return fmt.Sprintf(
-		"version: %d, mme_type: %#x, vendor: %#x, payload: [% x]",
-		h.Version, h.MMEType, h.Vendor, h.Payload)
 }
 
 func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
@@ -306,7 +279,7 @@ func main() {
 	prometheus.MustRegister(version.NewCollector("homeplug_exporter"))
 
 	level.Info(logger).Log("msg", "Collector parameters", "destaddr", destAddress, "interface", iface.Name)
-	level.Info(logger).Log("msg", "Starting HTTP erver", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
+	level.Info(logger).Log("msg", "Starting HTTP server", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -398,7 +371,7 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 		var f ethernet.Frame
 		err = (&f).UnmarshalBinary(b[:n])
 		if err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err)
+			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err, "from", addr)
 			continue
 		}
 
@@ -408,7 +381,14 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
-		level.Debug(logger).Log("msg", "Received homeplug frame", "source_addr", addr, "frame", &h)
+		level.Debug(logger).Log(
+			"msg", "Received homeplug frame",
+			"from", addr,
+			"version", fmt.Sprintf("%#x", h.Version),
+			"mme_type", fmt.Sprintf("%#x", h.MMEType),
+			"vendor", fmt.Sprintf("%#x", h.Vendor),
+			"payload", fmt.Sprintf("[% x]", h.Payload),
+		)
 
 		if h.MMEType != nwInfoCnf {
 			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
@@ -420,7 +400,34 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
 			continue
 		}
-		level.Debug(logger).Log("msg", "Received homeplug network info", "network_info", &hni)
+		if len(hni.Networks) == 0 {
+			level.Error(logger).Log("msg", "Ignoring isolated device", "device_addr", hni.Address)
+			continue
+		}
+
+		for _, network := range hni.Networks {
+			level.Debug(logger).Log(
+				"msg", "Network found",
+				"device_addr", hni.Address,
+				"nid", network.NetworkID,
+				"snid", fmt.Sprintf("%d", network.ShortID),
+				"tei", fmt.Sprintf("%d", network.TEI),
+				"role", stRole[network.Role],
+				"cco_addr", network.CCoAddress,
+				"cco_tei", fmt.Sprintf("%d", network.CCoTEI),
+			)
+		}
+		for _, station := range hni.Stations {
+			level.Debug(logger).Log(
+				"msg", "Connected station found",
+				"device_addr", hni.Address,
+				"peer_addr", station.Address,
+				"bda", station.BridgedAddress,
+				"tx_rate", fmt.Sprintf("%d", station.TxRate),
+				"rx_rate", fmt.Sprintf("%d", station.RxRate),
+			)
+		}
+
 		ch <- hni
 	}
 }
