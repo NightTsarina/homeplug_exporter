@@ -37,7 +37,7 @@ func (m *macAddressValue) Get() interface{} {
 }
 
 func (m *macAddressValue) String() string {
-	return m.String()
+	return string(*m)
 }
 
 func MacAddress(s kingpin.Settings) (target *net.HardwareAddr) {
