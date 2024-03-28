@@ -131,6 +131,12 @@ type HomeplugNetworkInfo struct {
 	Stations []HomeplugStationStatus
 }
 
+func (n *HomeplugNetworkInfo) String() string {
+	return fmt.Sprintf(
+		"Device: %s, Networks: %v, Stations: %v",
+		n.Address, n.Networks, n.Stations)
+}
+
 func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 	o := 0
 
@@ -225,6 +231,12 @@ type HomeplugFrame struct {
 	Payload []byte
 }
 
+func (h *HomeplugFrame) String() string {
+	return fmt.Sprintf(
+		"version: %d, mme_type: %#x, vendor: %#x, payload: [% x]",
+		h.Version, h.MMEType, h.Vendor, h.Payload)
+}
+
 func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
 	b := make([]byte, h.length())
 	_, err := h.read(b)
@@ -293,8 +305,8 @@ func main() {
 	prometheus.MustRegister(exporter)
 	prometheus.MustRegister(version.NewCollector("homeplug_exporter"))
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", destAddress, iface.Name))
-	level.Info(logger).Log("msg", fmt.Sprintf("Starting Server: %s", *listeningAddress))
+	level.Info(logger).Log("msg", "Collector parameters", "destaddr", destAddress, "interface", iface.Name)
+	level.Info(logger).Log("msg", "Starting HTTP erver", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -396,10 +408,10 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
-		level.Debug(logger).Log("msg", fmt.Sprintf("[%v] %+v", addr, h))
+		level.Debug(logger).Log("msg", "Received homeplug frame", "source_addr", addr, "frame", &h)
 
 		if h.MMEType != nwInfoCnf {
-			level.Error(logger).Log("msg", fmt.Sprintf("Got unhandled MME type: %v", h.MMEType))
+			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
 			continue
 		}
 
@@ -408,7 +420,7 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
 			continue
 		}
-		level.Debug(logger).Log("msg", fmt.Sprintf("%+v", hni))
+		level.Debug(logger).Log("msg", "Received homeplug network info", "network_info", &hni)
 		ch <- hni
 	}
 }
