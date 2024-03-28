@@ -51,9 +51,8 @@ of these aliases:
 Note that the default destination (`local`) will only find devices on the near
 side of a PLC connection.
 
-Once a reply is obtained from a device, the exporter queries directly all other
+Once a reply is obtained from a device, the exporter directly queries all other
 devices connected to the same HomePlug network.
-
 
 [^1]: A "local device" is any device at the near end of a PLC connection.  
   A "remote device" is any device at the far end of a PLC connection.  

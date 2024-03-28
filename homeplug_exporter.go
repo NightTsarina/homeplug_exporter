@@ -333,7 +333,7 @@ func get_homeplug_netinfo(iface *net.Interface, conn *raw.Conn, dest net.Hardwar
 
 	err := write_homeplug(iface, conn, dest)
 	if err != nil {
-		return nil, fmt.Errorf("write_homeplug failed: %v", err)
+		return nil, fmt.Errorf("write_homeplug failed: %w", err)
 	}
 
 ChanLoop:
@@ -348,9 +348,8 @@ ChanLoop:
 			seen[addr] = true
 			// Query each remote station directly.
 			for _, station := range n.Stations {
-				err := write_homeplug(iface, conn, station.Address)
-				if err != nil {
-					return nil, fmt.Errorf("write_homeplug failed: %v", err)
+				if err := write_homeplug(iface, conn, station.Address); err != nil {
+					return nil, fmt.Errorf("write_homeplug failed: %w", err)
 				}
 			}
 
@@ -375,7 +374,7 @@ func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr)
 
 	b, err := h.MarshalBinary()
 	if err != nil {
-		return fmt.Errorf("failed to marshal homeplug frame: %v", err)
+		return fmt.Errorf("failed to marshal homeplug frame: %w", err)
 	}
 
 	f := &ethernet.Frame{
@@ -391,12 +390,12 @@ func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr)
 
 	b, err = f.MarshalBinary()
 	if err != nil {
-		return fmt.Errorf("failed to marshal ethernet frame: %v", err)
+		return fmt.Errorf("failed to marshal ethernet frame: %w", err)
 	}
 
 	_, err = conn.WriteTo(b, a)
 	if err != nil {
-		return fmt.Errorf("failed to send message: %v", err)
+		return fmt.Errorf("failed to send message: %w", err)
 	}
 
 	return nil
