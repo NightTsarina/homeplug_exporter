@@ -107,11 +107,11 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) error {
 			ch <- prometheus.MustNewConstMetric(e.network, prometheus.GaugeValue, 1,
 				info.Address.String(),
 				network.NetworkID.String(),
-				strconv.FormatInt(int64(network.ShortID), 10),
-				strconv.FormatInt(int64(network.TEI), 10),
+				strconv.FormatUint(uint64(network.ShortID), 10),
+				strconv.FormatUint(uint64(network.TEI), 10),
 				stRole[network.Role],
 				network.CCoAddress.String(),
-				strconv.FormatInt(int64(network.CCoTEI), 10))
+				strconv.FormatUint(uint64(network.CCoTEI), 10))
 		}
 
 		network0 := info.Networks[0]
@@ -403,10 +403,8 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 			continue
 		}
 
-		var hni HomeplugNetworkInfo
-		hni.Address = f.Source
-		err = (&hni).UnmarshalBinary(h.Payload)
-		if err != nil {
+		hni := HomeplugNetworkInfo{Address: f.Source}
+		if err := (&hni).UnmarshalBinary(h.Payload); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
 			continue
 		}
