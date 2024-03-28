@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -64,17 +63,17 @@ func NewExporter(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr) *E
 		txRate: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "station", "tx_rate_bytes"),
 			"Average PHY Tx data rate",
-			[]string{"mac_address", "terminal_equipment_identifier"},
+			[]string{"device_addr", "nid", "peer_addr"},
 			nil),
 		rxRate: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "station", "rx_rate_bytes"),
 			"Average PHY Rx data rate",
-			[]string{"mac_address", "terminal_equipment_identifier"},
+			[]string{"device_addr", "nid", "peer_addr"},
 			nil),
 		network: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, "network", "id"),
+			prometheus.BuildFQName(namespace, "network", "info"),
 			"Logical network information",
-			[]string{"network_identifier", "terminal_equipment_identifier", "coordinator_mac_address"},
+			[]string{"device_addr", "nid", "snid", "tei", "role", "cco_addr", "cco_tei"},
 			nil),
 	}
 }
@@ -101,22 +100,33 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) error {
 	}
 
 	for _, info := range netinfos {
+		if len(info.Networks) == 0 {
+			continue
+		}
 		for _, network := range info.Networks {
-			ch <- prometheus.MustNewConstMetric(e.network, prometheus.GaugeValue,
-				float64(network.ShortID), hex.EncodeToString(network.NetworkID[:]), strconv.FormatInt(int64(network.TEI), 10), network.CCoAddress.String())
+			ch <- prometheus.MustNewConstMetric(e.network, prometheus.GaugeValue, 1,
+				info.Address.String(),
+				network.NetworkID.String(),
+				strconv.FormatUint(uint64(network.ShortID), 10),
+				strconv.FormatUint(uint64(network.TEI), 10),
+				stRole[network.Role],
+				network.CCoAddress.String(),
+				strconv.FormatUint(uint64(network.CCoTEI), 10))
 		}
 
+		network0 := info.Networks[0]
 		for _, station := range info.Stations {
 			ch <- prometheus.MustNewConstMetric(e.txRate, prometheus.GaugeValue,
-				float64(uint64(station.TxRate)*1024*1024/8), station.Address.String(), strconv.FormatInt(int64(station.TEI), 10))
+				float64(uint64(station.TxRate)*1024*1024/8), info.Address.String(), network0.NetworkID.String(), station.Address.String())
 			ch <- prometheus.MustNewConstMetric(e.rxRate, prometheus.GaugeValue,
-				float64(uint64(station.RxRate)*1024*1024/8), station.Address.String(), strconv.FormatInt(int64(station.TEI), 10))
+				float64(uint64(station.RxRate)*1024*1024/8), info.Address.String(), network0.NetworkID.String(), station.Address.String())
 		}
 	}
 	return nil
 }
 
 type HomeplugNetworkInfo struct {
+	Address  net.HardwareAddr
 	Networks []HomeplugNetworkStatus
 	Stations []HomeplugStationStatus
 }
@@ -133,7 +143,6 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		level.Debug(logger).Log("msg", "Network found", "network", &ns)
 		o += size
 	}
 
@@ -146,7 +155,6 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Stations = append(n.Stations, ss)
-		level.Debug(logger).Log("msg", "Station found", "station", &ss)
 		o += size
 	}
 
@@ -160,13 +168,6 @@ type HomeplugNetworkStatus struct {
 	Role       uint8
 	CCoAddress net.HardwareAddr
 	CCoTEI     uint8
-}
-
-func (s *HomeplugNetworkStatus) String() string {
-	role := stRole[s.Role]
-	return fmt.Sprintf(
-		"NID: %s, SNID: %x, TEI: %d, Role: %s, CCo: %s, CCoTEI: %d",
-		s.NetworkID, s.ShortID, s.TEI, role, s.CCoAddress, s.CCoTEI)
 }
 
 func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
@@ -188,12 +189,6 @@ type HomeplugStationStatus struct {
 	BridgedAddress net.HardwareAddr
 	TxRate         uint8
 	RxRate         uint8
-}
-
-func (s *HomeplugStationStatus) String() string {
-	return fmt.Sprintf(
-		"MAC: %s, TEI: %d, BDA: %s, RX: %d Mbit/s, TX: %d Mbit/s",
-		s.Address, s.TEI, s.BridgedAddress, s.RxRate, s.TxRate)
 }
 
 func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
@@ -283,8 +278,8 @@ func main() {
 	prometheus.MustRegister(exporter)
 	prometheus.MustRegister(version.NewCollector("homeplug_exporter"))
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Collecting from MAC address %s via interface %s", destAddress, iface.Name))
-	level.Info(logger).Log("msg", fmt.Sprintf("Starting Server: %s", *listeningAddress))
+	level.Info(logger).Log("msg", "Collector parameters", "destaddr", destAddress, "interface", iface.Name)
+	level.Info(logger).Log("msg", "Starting HTTP server", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +300,7 @@ func main() {
 
 func get_homeplug_netinfo(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr) ([]HomeplugNetworkInfo, error) {
 	ni := make([]HomeplugNetworkInfo, 0)
-	ch := make(chan HomeplugFrame, 1)
+	ch := make(chan HomeplugNetworkInfo, 1)
 	go read_homeplug(iface, conn, ch)
 
 	err := write_homeplug(iface, conn, dest)
@@ -316,18 +311,8 @@ func get_homeplug_netinfo(iface *net.Interface, conn *raw.Conn, dest net.Hardwar
 ChanLoop:
 	for {
 		select {
-		case h := <-ch:
-			if h.MMEType == nwInfoCnf {
-				var n HomeplugNetworkInfo
-				err := (&n).UnmarshalBinary(h.Payload)
-				if err != nil {
-					level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
-				} else {
-					ni = append(ni, n)
-				}
-			} else {
-				level.Error(logger).Log("msg", fmt.Sprintf("Got unhandled mmetype: %v", h.MMEType))
-			}
+		case n := <-ch:
+			ni = append(ni, n)
 		case <-time.After(time.Second):
 			break ChanLoop
 		}
@@ -372,7 +357,7 @@ func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr)
 	return nil
 }
 
-func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugFrame) {
+func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetworkInfo) {
 	b := make([]byte, iface.MTU)
 
 	for {
@@ -386,7 +371,7 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugFrame
 		var f ethernet.Frame
 		err = (&f).UnmarshalBinary(b[:n])
 		if err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err)
+			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err, "from", addr)
 			continue
 		}
 
@@ -396,9 +381,54 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugFrame
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
+		level.Debug(logger).Log(
+			"msg", "Received homeplug frame",
+			"from", addr,
+			"version", fmt.Sprintf("%#x", h.Version),
+			"mme_type", fmt.Sprintf("%#x", h.MMEType),
+			"vendor", fmt.Sprintf("%#x", h.Vendor),
+			"payload", fmt.Sprintf("[% x]", h.Payload),
+		)
 
-		level.Debug(logger).Log("msg", fmt.Sprintf("[%v] %+v", addr, h))
-		ch <- h
+		if h.MMEType != nwInfoCnf {
+			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
+			continue
+		}
+
+		hni := HomeplugNetworkInfo{Address: f.Source}
+		if err := (&hni).UnmarshalBinary(h.Payload); err != nil {
+			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
+			continue
+		}
+		if len(hni.Networks) == 0 {
+			level.Error(logger).Log("msg", "Ignoring isolated device", "device_addr", hni.Address)
+			continue
+		}
+
+		for _, network := range hni.Networks {
+			level.Debug(logger).Log(
+				"msg", "Network found",
+				"device_addr", hni.Address,
+				"nid", network.NetworkID,
+				"snid", network.ShortID,
+				"tei", network.TEI,
+				"role", stRole[network.Role],
+				"cco_addr", network.CCoAddress,
+				"cco_tei", network.CCoTEI,
+			)
+		}
+		for _, station := range hni.Stations {
+			level.Debug(logger).Log(
+				"msg", "Connected station found",
+				"device_addr", hni.Address,
+				"peer_addr", station.Address,
+				"bda", station.BridgedAddress,
+				"tx_rate", station.TxRate,
+				"rx_rate", station.RxRate,
+			)
+		}
+
+		ch <- hni
 	}
 }
 
