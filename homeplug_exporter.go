@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -222,11 +223,8 @@ func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
 
 func (h *HomeplugFrame) read(b []byte) (int, error) {
 	b[0] = h.Version
-	b[1] = byte(h.MMEType & 0xff)
-	b[2] = byte(h.MMEType >> 8)
-	b[3] = h.Vendor[0]
-	b[4] = h.Vendor[1]
-	b[5] = h.Vendor[2]
+	binary.LittleEndian.PutUint16(b[1:], h.MMEType)
+	copy(b[3:], h.Vendor[:])
 	copy(b[6:], h.Payload[:])
 	return len(b), nil
 }
@@ -244,10 +242,8 @@ func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
 	copy(bb[:], b[6:])
 
 	h.Version = b[0]
-	h.MMEType = uint16(b[2])<<8 + uint16(b[1])
-	h.Vendor[0] = b[3]
-	h.Vendor[1] = b[4]
-	h.Vendor[2] = b[5]
+	h.MMEType = binary.LittleEndian.Uint16(b[1:])
+	copy(h.Vendor[:], b[3:])
 	h.Payload = bb
 	return nil
 }
