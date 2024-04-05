@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -169,15 +170,9 @@ type HomeplugNetworkStatus struct {
 }
 
 func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
-	if len(b) < 17 {
-		return 0, io.ErrUnexpectedEOF
+	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
+		return len(b), err
 	}
-	copy(s.NetworkID[:], b[0:])
-	s.ShortID = b[7]
-	s.TEI = b[8]
-	s.Role = b[9]
-	copy(s.CCoAddress[:], b[10:])
-	s.CCoTEI = b[16]
 	return 17, nil
 }
 
@@ -190,14 +185,9 @@ type HomeplugStationStatus struct {
 }
 
 func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
-	if len(b) < 15 {
-		return 0, io.ErrUnexpectedEOF
+	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
+		return len(b), err
 	}
-	copy(s.Address[:], b[0:])
-	s.TEI = b[6]
-	copy(s.BridgedAddress[:], b[7:])
-	s.TxRate = b[13]
-	s.RxRate = b[14]
 	return 15, nil
 }
 

@@ -3,6 +3,7 @@ package main
 import "net"
 
 const (
+	// HPAV EtherType
 	etherType = 0x88e1
 
 	hpVersion = 0
