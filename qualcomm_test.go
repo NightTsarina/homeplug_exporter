@@ -12,8 +12,8 @@ func TestHomeplugFrame(t *testing.T) {
 	buf := []byte{0x00, 0x39, 0xa0, 0x00, 0xb0, 0x52}
 
 	want := HomeplugFrame{
-		Version: [1]byte{0x00},
-		MMEType: [2]byte{0xa0, 0x39},
+		Version: 0,
+		MMEType: nwInfoCnf,
 		Vendor:  [3]byte{0x00, 0xb0, 0x52},
 		Payload: []uint8{},
 	}

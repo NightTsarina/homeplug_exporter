@@ -28,14 +28,16 @@ import (
 const (
 	namespace = "homeplug"
 	etherType = 0x88E1
+
+	hpVersion = 0
+
+	nwInfoReq = 0xa038
+	nwInfoCnf = 0xa039
 )
 
 var (
-	hpVersion = [...]byte{0x00}
-	nwInfoReq = [...]byte{0xA0, 0x38}
-	nwInfoCnf = [...]byte{0xA0, 0x39}
-	hpVendor  = [...]byte{0x00, 0xB0, 0x52}
-	stRole    = [...]string{"STA", "PCO", "CCO"}
+	hpVendor = [...]byte{0x00, 0xB0, 0x52}
+	stRole   = [...]string{"STA", "PCO", "CCO"}
 
 	listeningAddress = kingpin.Flag("telemetry.address", "Address on which to expose metrics.").Default(":9702").String()
 	metricsEndpoint  = kingpin.Flag("telemetry.endpoint", "Path under which to expose metrics.").Default("/metrics").String()
@@ -206,8 +208,8 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 }
 
 type HomeplugFrame struct {
-	Version [1]byte
-	MMEType [2]byte
+	Version uint8
+	MMEType uint16
 	Vendor  [3]byte
 	Payload []byte
 }
@@ -219,9 +221,9 @@ func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
 }
 
 func (h *HomeplugFrame) read(b []byte) (int, error) {
-	b[0] = h.Version[0]
-	b[1] = h.MMEType[1]
-	b[2] = h.MMEType[0]
+	b[0] = h.Version
+	b[1] = byte(h.MMEType & 0xff)
+	b[2] = byte(h.MMEType >> 8)
 	b[3] = h.Vendor[0]
 	b[4] = h.Vendor[1]
 	b[5] = h.Vendor[2]
@@ -241,9 +243,8 @@ func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
 	bb := make([]byte, len(b)-6)
 	copy(bb[:], b[6:])
 
-	h.Version[0] = b[0]
-	h.MMEType[1] = b[1]
-	h.MMEType[0] = b[2]
+	h.Version = b[0]
+	h.MMEType = uint16(b[2])<<8 + uint16(b[1])
 	h.Vendor[0] = b[3]
 	h.Vendor[1] = b[4]
 	h.Vendor[2] = b[5]
