@@ -142,17 +142,18 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 		}
 		n.Networks = append(n.Networks, ns)
 		o += size
-	}
 
-	var num_stations = int(b[o])
-	o++
-	for i := 0; i < num_stations; i++ {
-		var ss HomeplugStationStatus
-		if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
-			return err
+		var num_stations = int(b[o])
+		o++
+
+		for i := 0; i < num_stations; i++ {
+			var ss HomeplugStationStatus
+			if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
+				return err
+			}
+			n.Stations = append(n.Stations, ss)
+			o += 15 // size of HomeplugStationStatus struct
 		}
-		n.Stations = append(n.Stations, ss)
-		o += 15 // size of HomeplugStationStatus struct
 	}
 
 	return nil
