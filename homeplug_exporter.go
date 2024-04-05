@@ -28,17 +28,10 @@ import (
 
 const (
 	namespace = "homeplug"
-	etherType = 0x88E1
-
-	hpVersion = 0
-
-	nwInfoReq = 0xa038
-	nwInfoCnf = 0xa039
 )
 
 var (
-	hpVendor = [...]byte{0x00, 0xB0, 0x52}
-	stRole   = [...]string{"STA", "PCO", "CCO"}
+	stRole = [...]string{"STA", "PCO", "CCO"}
 
 	listeningAddress = kingpin.Flag("telemetry.address", "Address on which to expose metrics.").Default(":9702").String()
 	metricsEndpoint  = kingpin.Flag("telemetry.endpoint", "Path under which to expose metrics.").Default("/metrics").String()
@@ -167,11 +160,11 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 }
 
 type HomeplugNetworkStatus struct {
-	NetworkID  net.HardwareAddr
+	NetworkID  networkID
 	ShortID    uint8
 	TEI        uint8
 	Role       uint8
-	CCoAddress net.HardwareAddr
+	CCoAddress macAddr
 	CCoTEI     uint8
 }
 
@@ -179,19 +172,19 @@ func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
 	if len(b) < 17 {
 		return 0, io.ErrUnexpectedEOF
 	}
-	s.NetworkID = b[0:7]
+	copy(s.NetworkID[:], b[0:])
 	s.ShortID = b[7]
 	s.TEI = b[8]
 	s.Role = b[9]
-	s.CCoAddress = b[10:16]
+	copy(s.CCoAddress[:], b[10:])
 	s.CCoTEI = b[16]
 	return 17, nil
 }
 
 type HomeplugStationStatus struct {
-	Address        net.HardwareAddr
+	Address        macAddr
 	TEI            uint8
-	BridgedAddress net.HardwareAddr
+	BridgedAddress macAddr
 	TxRate         uint8
 	RxRate         uint8
 }
@@ -200,9 +193,9 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 	if len(b) < 15 {
 		return 0, io.ErrUnexpectedEOF
 	}
-	s.Address = b[0:6]
+	copy(s.Address[:], b[0:])
 	s.TEI = b[6]
-	s.BridgedAddress = b[7:13]
+	copy(s.BridgedAddress[:], b[7:])
 	s.TxRate = b[13]
 	s.RxRate = b[14]
 	return 15, nil
@@ -330,7 +323,7 @@ ChanLoop:
 			seen[addr] = true
 			// Query each remote station directly.
 			for _, station := range n.Stations {
-				if err := write_homeplug(iface, conn, station.Address); err != nil {
+				if err := write_homeplug(iface, conn, net.HardwareAddr(station.Address[:])); err != nil {
 					return nil, fmt.Errorf("write_homeplug failed: %w", err)
 				}
 			}
