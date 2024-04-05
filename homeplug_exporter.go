@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
+	"github.com/prometheus/exporter-toolkit/web"
 )
 
 const (
@@ -283,15 +284,25 @@ func main() {
 	level.Info(logger).Log("msg", "Starting HTTP server", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`<html>
-             <head><title>Homeplug Exporter</title></head>
-             <body>
-             <h1>Homeplug Exporter</h1>
-             <p><a href='` + *metricsEndpoint + `'>Metrics</a></p>
-             </body>
-             </html>`))
-	})
+	if *metricsEndpoint != "/" {
+		landingConfig := web.LandingConfig{
+			Name:        "Homeplug Exporter",
+			Description: "Prometheus Homeplug Exporter",
+			Version:     version.Info(),
+			Links: []web.LandingLinks{
+				{
+					Address: *metricsEndpoint,
+					Text:    "Metrics",
+				},
+			},
+		}
+		landingPage, err := web.NewLandingPage(landingConfig)
+		if err != nil {
+			level.Error(logger).Log("err", err)
+			os.Exit(1)
+		}
+		http.Handle("/", landingPage)
+	}
 
 	if err := http.ListenAndServe(*listeningAddress, nil); err != nil {
 		level.Error(logger).Log("msg", "Failed to bind HTTP server", "err", err)
