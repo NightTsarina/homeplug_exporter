@@ -148,12 +148,11 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 	o++
 	for i := 0; i < num_stations; i++ {
 		var ss HomeplugStationStatus
-		size, err := (&ss).UnmarshalBinary(b[o:])
-		if err != nil {
+		if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
 			return err
 		}
 		n.Stations = append(n.Stations, ss)
-		o += size
+		o += 15 // size of HomeplugStationStatus struct
 	}
 
 	return nil
@@ -183,11 +182,9 @@ type HomeplugStationStatus struct {
 	RxRate         uint8
 }
 
-func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
-	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
-		return len(b), err
-	}
-	return 15, nil
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, s)
 }
 
 func main() {
