@@ -191,15 +191,16 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 	return 15, nil
 }
 
+// HomeplugFrame is analogous to the qualcomm_hdr struct defined by the open-plc-utils reference
+// implementation.
 type HomeplugFrame struct {
 	Version uint8
 	MMEType uint16
 	Vendor  oui
-	Payload []byte
 }
 
 func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
-	b := make([]byte, h.length())
+	b := make([]byte, qualcommHdrLen)
 	_, err := h.read(b)
 	return b, err
 }
@@ -208,12 +209,7 @@ func (h *HomeplugFrame) read(b []byte) (int, error) {
 	b[0] = h.Version
 	binary.LittleEndian.PutUint16(b[1:], h.MMEType)
 	copy(b[3:], h.Vendor[:])
-	copy(b[6:], h.Payload[:])
 	return len(b), nil
-}
-
-func (h *HomeplugFrame) length() int {
-	return 6 + len(h.Payload)
 }
 
 func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
@@ -221,13 +217,9 @@ func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
 		return io.ErrUnexpectedEOF
 	}
 
-	bb := make([]byte, len(b)-6)
-	copy(bb[:], b[6:])
-
 	h.Version = b[0]
 	h.MMEType = binary.LittleEndian.Uint16(b[1:])
 	copy(h.Vendor[:], b[3:])
-	h.Payload = bb
 	return nil
 }
 
@@ -398,7 +390,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 			"version", fmt.Sprintf("%#x", h.Version),
 			"mme_type", fmt.Sprintf("%#x", h.MMEType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
-			"payload", fmt.Sprintf("[% x]", h.Payload),
+			"payload", fmt.Sprintf("[% x]", f.Payload[qualcommHdrLen:]),
 		)
 
 		if h.MMEType != nwInfoCnf {
@@ -407,7 +399,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 		}
 
 		hni := HomeplugNetworkInfo{Address: f.Source}
-		if err := (&hni).UnmarshalBinary(h.Payload); err != nil {
+		if err := (&hni).UnmarshalBinary(f.Payload[qualcommHdrLen:]); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
 			continue
 		}

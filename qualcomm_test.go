@@ -14,7 +14,6 @@ func TestHomeplugFrame(t *testing.T) {
 		Version: hpavVersion1_0,
 		MMEType: nwInfoCnf,
 		Vendor:  ouiQualcomm,
-		Payload: []uint8{},
 	}
 
 	hf := HomeplugFrame{}

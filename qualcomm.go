@@ -1,6 +1,8 @@
 package main
 
 const (
+	qualcommHdrLen = 6
+
 	// Qualcomm vendor-specific Management Message types.
 	nwInfoReq = 0xa038
 	nwInfoCnf = 0xa039
