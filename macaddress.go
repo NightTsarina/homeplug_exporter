@@ -10,6 +10,8 @@ import (
 
 var (
 	bcastMAC = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+
+	// Qualcomm Atheros vendor-specific address for targeting devices on the local LAN.
 	localMAC = net.HardwareAddr{0x00, 0xb0, 0x52, 0x00, 0x00, 0x01}
 )
 

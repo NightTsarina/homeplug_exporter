@@ -194,7 +194,7 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 type HomeplugFrame struct {
 	Version uint8
 	MMEType uint16
-	Vendor  [3]byte
+	Vendor  oui
 	Payload []byte
 }
 
@@ -332,9 +332,9 @@ ChanLoop:
 
 func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
 	h := &HomeplugFrame{
-		Version: hpVersion,
+		Version: hpavVersion1_0,
 		MMEType: nwInfoReq,
-		Vendor:  hpVendor,
+		Vendor:  ouiQualcomm,
 	}
 
 	b, err := h.MarshalBinary()
