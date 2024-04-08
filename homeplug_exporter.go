@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -199,28 +198,18 @@ type HomeplugFrame struct {
 	Vendor  oui
 }
 
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
-	b := make([]byte, qualcommHdrLen)
-	_, err := h.read(b)
-	return b, err
-}
-
-func (h *HomeplugFrame) read(b []byte) (int, error) {
-	b[0] = h.Version
-	binary.LittleEndian.PutUint16(b[1:], h.MMEType)
-	copy(b[3:], h.Vendor[:])
-	return len(b), nil
-}
-
-func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
-	if len(b) < 6 {
-		return io.ErrUnexpectedEOF
+	var b bytes.Buffer
+	if err := binary.Write(&b, binary.LittleEndian, h); err != nil {
+		return nil, err
 	}
+	return b.Bytes(), nil
+}
 
-	h.Version = b[0]
-	h.MMEType = binary.LittleEndian.Uint16(b[1:])
-	copy(h.Vendor[:], b[3:])
-	return nil
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, h)
 }
 
 func main() {
