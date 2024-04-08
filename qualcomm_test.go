@@ -6,22 +6,22 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestHomeplugFrame(t *testing.T) {
+func TestQualcommHdr(t *testing.T) {
 	// NW_INFO.CNF response header only.
 	buf := []byte{0x00, 0x39, 0xa0, 0x00, 0xb0, 0x52}
 
-	want := HomeplugFrame{
+	want := QualcommHdr{
 		Version: hpavVersion1_0,
 		MMEType: nwInfoCnf,
 		Vendor:  ouiQualcomm,
 	}
 
-	hf := HomeplugFrame{}
-	if err := hf.UnmarshalBinary(buf); err != nil {
+	hdr := QualcommHdr{}
+	if err := hdr.UnmarshalBinary(buf); err != nil {
 		t.Errorf("unmarshal error: %v", err)
 	}
 
-	if diff := cmp.Diff(want, hf); diff != "" {
+	if diff := cmp.Diff(want, hdr); diff != "" {
 		t.Errorf("unmarshal mismatch (-want +got):\n%s", diff)
 	}
 }

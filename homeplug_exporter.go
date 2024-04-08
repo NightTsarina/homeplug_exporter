@@ -190,28 +190,6 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
 	return 15, nil
 }
 
-// HomeplugFrame is analogous to the qualcomm_hdr struct defined by the open-plc-utils reference
-// implementation.
-type HomeplugFrame struct {
-	Version uint8
-	MMEType uint16
-	Vendor  oui
-}
-
-// MarshalBinary implements the encoding.BinaryMarshaler interface.
-func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
-	var b bytes.Buffer
-	if err := binary.Write(&b, binary.LittleEndian, h); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
-}
-
-// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
-func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
-	return binary.Read(bytes.NewReader(b), binary.LittleEndian, h)
-}
-
 func main() {
 	promlogConfig := &promlog.Config{}
 
@@ -312,7 +290,7 @@ ChanLoop:
 }
 
 func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
-	h := &HomeplugFrame{
+	h := &QualcommHdr{
 		Version: hpavVersion1_0,
 		MMEType: nwInfoReq,
 		Vendor:  ouiQualcomm,
@@ -367,7 +345,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 			continue
 		}
 
-		var h HomeplugFrame
+		var h QualcommHdr
 		err = (&h).UnmarshalBinary(f.Payload)
 		if err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
