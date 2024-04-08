@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -27,15 +29,10 @@ import (
 
 const (
 	namespace = "homeplug"
-	etherType = 0x88E1
 )
 
 var (
-	hpVersion = [...]byte{0x00}
-	nwInfoReq = [...]byte{0xA0, 0x38}
-	nwInfoCnf = [...]byte{0xA0, 0x39}
-	hpVendor  = [...]byte{0x00, 0xB0, 0x52}
-	stRole    = [...]string{"STA", "PCO", "CCO"}
+	stRole = [...]string{"STA", "PCO", "CCO"}
 
 	listeningAddress = kingpin.Flag("telemetry.address", "Address on which to expose metrics.").Default(":9702").String()
 	metricsEndpoint  = kingpin.Flag("telemetry.endpoint", "Path under which to expose metrics.").Default("/metrics").String()
@@ -164,50 +161,39 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 }
 
 type HomeplugNetworkStatus struct {
-	NetworkID  net.HardwareAddr
+	NetworkID  networkID
 	ShortID    uint8
 	TEI        uint8
 	Role       uint8
-	CCoAddress net.HardwareAddr
+	CCoAddress macAddr
 	CCoTEI     uint8
 }
 
 func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
-	if len(b) < 17 {
-		return 0, io.ErrUnexpectedEOF
+	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
+		return len(b), err
 	}
-	s.NetworkID = b[0:7]
-	s.ShortID = b[7]
-	s.TEI = b[8]
-	s.Role = b[9]
-	s.CCoAddress = b[10:16]
-	s.CCoTEI = b[16]
 	return 17, nil
 }
 
 type HomeplugStationStatus struct {
-	Address        net.HardwareAddr
+	Address        macAddr
 	TEI            uint8
-	BridgedAddress net.HardwareAddr
+	BridgedAddress macAddr
 	TxRate         uint8
 	RxRate         uint8
 }
 
 func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
-	if len(b) < 15 {
-		return 0, io.ErrUnexpectedEOF
+	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
+		return len(b), err
 	}
-	s.Address = b[0:6]
-	s.TEI = b[6]
-	s.BridgedAddress = b[7:13]
-	s.TxRate = b[13]
-	s.RxRate = b[14]
 	return 15, nil
 }
 
 type HomeplugFrame struct {
-	Version [1]byte
-	MMEType [2]byte
+	Version uint8
+	MMEType uint16
 	Vendor  [3]byte
 	Payload []byte
 }
@@ -219,12 +205,9 @@ func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
 }
 
 func (h *HomeplugFrame) read(b []byte) (int, error) {
-	b[0] = h.Version[0]
-	b[1] = h.MMEType[1]
-	b[2] = h.MMEType[0]
-	b[3] = h.Vendor[0]
-	b[4] = h.Vendor[1]
-	b[5] = h.Vendor[2]
+	b[0] = h.Version
+	binary.LittleEndian.PutUint16(b[1:], h.MMEType)
+	copy(b[3:], h.Vendor[:])
 	copy(b[6:], h.Payload[:])
 	return len(b), nil
 }
@@ -241,12 +224,9 @@ func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
 	bb := make([]byte, len(b)-6)
 	copy(bb[:], b[6:])
 
-	h.Version[0] = b[0]
-	h.MMEType[1] = b[1]
-	h.MMEType[0] = b[2]
-	h.Vendor[0] = b[3]
-	h.Vendor[1] = b[4]
-	h.Vendor[2] = b[5]
+	h.Version = b[0]
+	h.MMEType = binary.LittleEndian.Uint16(b[1:])
+	copy(h.Vendor[:], b[3:])
 	h.Payload = bb
 	return nil
 }
@@ -333,7 +313,7 @@ ChanLoop:
 			seen[addr] = true
 			// Query each remote station directly.
 			for _, station := range n.Stations {
-				if err := write_homeplug(iface, conn, station.Address); err != nil {
+				if err := write_homeplug(iface, conn, net.HardwareAddr(station.Address[:])); err != nil {
 					return nil, fmt.Errorf("write_homeplug failed: %w", err)
 				}
 			}
