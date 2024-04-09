@@ -244,7 +244,7 @@ func main() {
 	level.Info(logger).Log("msg", "Starting homeplug_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
 
-	iface, err := get_interface_or_default(*interfaceName)
+	iface, err := getListenerInterface(*interfaceName)
 	if err != nil {
 		level.Error(logger).Log("msg", "Failed to get interface", "err", err)
 		os.Exit(1)
@@ -441,27 +441,24 @@ func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetwo
 	}
 }
 
-func get_interface_or_default(name string) (*net.Interface, error) {
-	if *interfaceName == "" {
+// getListenerInterface resolves a network interface name to a net.Interface. If the supplied
+// ifName is empty, the first non-loopback interface which is up will be returned.
+func getListenerInterface(ifName string) (*net.Interface, error) {
+	if ifName == "" {
 		ifaces, err := net.Interfaces()
 		if err != nil {
 			return nil, err
 		}
+
 		for _, iface := range ifaces {
-			if iface.Flags&net.FlagUp == 0 {
-				continue
+			if iface.Flags&net.FlagLoopback == 0 && iface.Flags&net.FlagUp != 0 {
+				return &iface, nil
 			}
-			if iface.Flags&net.FlagLoopback != 0 {
-				continue
-			}
-			return &iface, nil
 		}
-	} else {
-		iface, err := net.InterfaceByName(*interfaceName)
-		if err != nil {
-			return nil, err
-		}
-		return iface, nil
+
+		// No suitable interface found; return error.
+		return nil, &net.OpError{Op: "route", Net: "ip+net", Err: errors.New("no such network interface")}
 	}
-	return nil, &net.OpError{Op: "route", Net: "ip+net", Source: nil, Addr: nil, Err: errors.New("invalid network interface")}
+
+	return net.InterfaceByName(ifName)
 }
