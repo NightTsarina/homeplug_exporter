@@ -253,9 +253,8 @@ func get_homeplug_netinfo(iface *net.Interface, conn *packet.Conn, dest net.Hard
 	ch := make(chan HomeplugNetworkInfo, 1)
 	go read_homeplug(iface, conn, ch)
 
-	err := write_homeplug(iface, conn, dest)
-	if err != nil {
-		return nil, fmt.Errorf("write_homeplug failed: %w", err)
+	if err := writeQualcommReq(iface, conn, dest, nwInfoReq); err != nil {
+		return nil, fmt.Errorf("writeQualcommReq failed: %w", err)
 	}
 
 ChanLoop:
@@ -270,8 +269,8 @@ ChanLoop:
 			seen[addr] = true
 			// Query each remote station directly.
 			for _, station := range n.Stations {
-				if err := write_homeplug(iface, conn, net.HardwareAddr(station.Address[:])); err != nil {
-					return nil, fmt.Errorf("write_homeplug failed: %w", err)
+				if err := writeQualcommReq(iface, conn, net.HardwareAddr(station.Address[:]), nwInfoReq); err != nil {
+					return nil, fmt.Errorf("writeQualcommReq failed: %w", err)
 				}
 			}
 
@@ -285,42 +284,6 @@ ChanLoop:
 	}
 
 	return ni, nil
-}
-
-func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
-	h := &QualcommHdr{
-		Version: hpavVersion1_0,
-		MMEType: nwInfoReq,
-		Vendor:  ouiQualcomm,
-	}
-
-	b, err := h.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("failed to marshal homeplug frame: %w", err)
-	}
-
-	f := &ethernet.Frame{
-		Destination: dest,
-		Source:      iface.HardwareAddr,
-		EtherType:   etherType,
-		Payload:     b,
-	}
-
-	a := &packet.Addr{
-		HardwareAddr: dest,
-	}
-
-	b, err = f.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("failed to marshal ethernet frame: %w", err)
-	}
-
-	_, err = conn.WriteTo(b, a)
-	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
-	}
-
-	return nil
 }
 
 func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
