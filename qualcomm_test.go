@@ -41,12 +41,13 @@ func TestHomeplugNetworkInfo1(t *testing.T) {
 	want := HomeplugNetworkInfo{
 		Networks: []HomeplugNetworkStatus{
 			{
-				NetworkID:  networkID{0x2f, 0x1a, 0x52, 0x87, 0x7a, 0x78, 0x05},
-				ShortID:    0x0c,
-				TEI:        1,
-				Role:       2,
-				CCoAddress: macAddr{0x00, 0x0b, 0x3b, 0x5f, 0x28, 0x52},
-				CCoTEI:     1,
+				NetworkID:   networkID{0x2f, 0x1a, 0x52, 0x87, 0x7a, 0x78, 0x05},
+				ShortID:     0x0c,
+				TEI:         1,
+				Role:        2,
+				CCoAddress:  macAddr{0x00, 0x0b, 0x3b, 0x5f, 0x28, 0x52},
+				CCoTEI:      1,
+				NumStations: 2,
 			},
 		},
 		Stations: []HomeplugStationStatus{
@@ -98,20 +99,22 @@ func TestHomeplugNetworkInfo2(t *testing.T) {
 	want := HomeplugNetworkInfo{
 		Networks: []HomeplugNetworkStatus{
 			{
-				NetworkID:  networkID{0x2f, 0x1a, 0x52, 0x87, 0x7a, 0x78, 0x05},
-				ShortID:    0x0c,
-				TEI:        1,
-				Role:       2,
-				CCoAddress: macAddr{0x00, 0x0b, 0x3b, 0x5f, 0x28, 0x52},
-				CCoTEI:     1,
+				NetworkID:   networkID{0x2f, 0x1a, 0x52, 0x87, 0x7a, 0x78, 0x05},
+				ShortID:     0x0c,
+				TEI:         1,
+				Role:        2,
+				CCoAddress:  macAddr{0x00, 0x0b, 0x3b, 0x5f, 0x28, 0x52},
+				CCoTEI:      1,
+				NumStations: 2,
 			},
 			{
-				NetworkID:  networkID{0x3e, 0x1c, 0x72, 0x49, 0xd1, 0xa8, 0x15},
-				ShortID:    0x0f,
-				TEI:        2,
-				Role:       2,
-				CCoAddress: macAddr{0x00, 0x0b, 0x3b, 0x91, 0x3c, 0x7a},
-				CCoTEI:     1,
+				NetworkID:   networkID{0x3e, 0x1c, 0x72, 0x49, 0xd1, 0xa8, 0x15},
+				ShortID:     0x0f,
+				TEI:         2,
+				Role:        2,
+				CCoAddress:  macAddr{0x00, 0x0b, 0x3b, 0x91, 0x3c, 0x7a},
+				CCoTEI:      1,
+				NumStations: 2,
 			},
 		},
 		Stations: []HomeplugStationStatus{

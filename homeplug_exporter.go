@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -130,23 +131,25 @@ type HomeplugNetworkInfo struct {
 }
 
 func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
-	o := 0
+	if len(b) == 0 {
+		return io.ErrUnexpectedEOF
+	}
 
-	var num_networks = int(b[o])
-	o++
-	for i := 0; i < num_networks; i++ {
+	// Number of AV logical networks.
+	numNetworks := int(b[0])
+
+	// Start offset of network / station data.
+	o := 1
+
+	for i := 0; i < numNetworks; i++ {
 		var ns HomeplugNetworkStatus
-		size, err := (&ns).UnmarshalBinary(b[o:])
-		if err != nil {
+		if err := (&ns).UnmarshalBinary(b[o:]); err != nil {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		o += size
+		o += 18 // size of HomeplugNetworkStatus struct
 
-		var num_stations = int(b[o])
-		o++
-
-		for i := 0; i < num_stations; i++ {
+		for i := 0; i < int(ns.NumStations); i++ {
 			var ss HomeplugStationStatus
 			if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
 				return err
@@ -159,20 +162,21 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
+// HomeplugNetworkStatus is analogous to the network struct defined in the open-plc-utils
+// reference implementation (plc/NetInfo1.c).
 type HomeplugNetworkStatus struct {
-	NetworkID  networkID
-	ShortID    uint8
-	TEI        uint8
-	Role       uint8
-	CCoAddress macAddr
-	CCoTEI     uint8
+	NetworkID   networkID
+	ShortID     uint8
+	TEI         uint8
+	Role        uint8
+	CCoAddress  macAddr
+	CCoTEI      uint8
+	NumStations uint8
 }
 
-func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
-	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
-		return len(b), err
-	}
-	return 17, nil
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, s)
 }
 
 type HomeplugStationStatus struct {
