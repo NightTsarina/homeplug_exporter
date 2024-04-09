@@ -11,6 +11,11 @@ Qualcomm Atheros chipset such as QCA6410, QCA7000, and QCA7420.
 Currently it does not support other chipsets as it uses Atheros-specific
 messages to gather statistics.
 
+**Note:** Due to the use of github.com/mdlayher/packet for low-level network
+functionality, homeplug_exporter will only work on Linux systems. Attempting to
+run it on non-Linux systems will result in "packet: not implemented on [GOOS]"
+errors.
+
 # Running
 
 Command-line flags:

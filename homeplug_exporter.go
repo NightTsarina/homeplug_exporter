@@ -17,7 +17,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/mdlayher/ethernet"
-	"github.com/mdlayher/raw"
+	"github.com/mdlayher/packet"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -45,7 +45,7 @@ var (
 
 type Exporter struct {
 	iface *net.Interface
-	conn  *raw.Conn
+	conn  *packet.Conn
 	dest  net.HardwareAddr
 	mutex sync.Mutex
 
@@ -54,7 +54,7 @@ type Exporter struct {
 	network *prometheus.Desc
 }
 
-func NewExporter(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr) *Exporter {
+func NewExporter(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) *Exporter {
 	return &Exporter{
 		iface: iface,
 		conn:  conn,
@@ -250,7 +250,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := raw.ListenPacket(iface, etherType, nil)
+	conn, err := packet.Listen(iface, packet.Raw, etherType, nil)
 	if err != nil {
 		level.Error(logger).Log("msg", "Failed to listen", "err", err)
 		os.Exit(1)
@@ -290,7 +290,7 @@ func main() {
 	}
 }
 
-func get_homeplug_netinfo(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr) ([]HomeplugNetworkInfo, error) {
+func get_homeplug_netinfo(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) ([]HomeplugNetworkInfo, error) {
 	seen := make(map[string]bool, 0)
 	ni := make([]HomeplugNetworkInfo, 0)
 	ch := make(chan HomeplugNetworkInfo, 1)
@@ -330,7 +330,7 @@ ChanLoop:
 	return ni, nil
 }
 
-func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr) error {
+func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
 	h := &HomeplugFrame{
 		Version: hpVersion,
 		MMEType: nwInfoReq,
@@ -349,7 +349,7 @@ func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr)
 		Payload:     b,
 	}
 
-	a := &raw.Addr{
+	a := &packet.Addr{
 		HardwareAddr: dest,
 	}
 
@@ -366,7 +366,7 @@ func write_homeplug(iface *net.Interface, conn *raw.Conn, dest net.HardwareAddr)
 	return nil
 }
 
-func read_homeplug(iface *net.Interface, conn *raw.Conn, ch chan<- HomeplugNetworkInfo) {
+func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 	b := make([]byte, iface.MTU)
 
 	for {
