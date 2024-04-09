@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -143,18 +142,18 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 		}
 		n.Networks = append(n.Networks, ns)
 		o += size
-	}
 
-	var num_stations = int(b[o])
-	o++
-	for i := 0; i < num_stations; i++ {
-		var ss HomeplugStationStatus
-		size, err := (&ss).UnmarshalBinary(b[o:])
-		if err != nil {
-			return err
+		var num_stations = int(b[o])
+		o++
+
+		for i := 0; i < num_stations; i++ {
+			var ss HomeplugStationStatus
+			if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
+				return err
+			}
+			n.Stations = append(n.Stations, ss)
+			o += 15 // size of HomeplugStationStatus struct
 		}
-		n.Stations = append(n.Stations, ss)
-		o += size
 	}
 
 	return nil
@@ -184,51 +183,9 @@ type HomeplugStationStatus struct {
 	RxRate         uint8
 }
 
-func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) (int, error) {
-	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
-		return len(b), err
-	}
-	return 15, nil
-}
-
-type HomeplugFrame struct {
-	Version uint8
-	MMEType uint16
-	Vendor  [3]byte
-	Payload []byte
-}
-
-func (h *HomeplugFrame) MarshalBinary() ([]byte, error) {
-	b := make([]byte, h.length())
-	_, err := h.read(b)
-	return b, err
-}
-
-func (h *HomeplugFrame) read(b []byte) (int, error) {
-	b[0] = h.Version
-	binary.LittleEndian.PutUint16(b[1:], h.MMEType)
-	copy(b[3:], h.Vendor[:])
-	copy(b[6:], h.Payload[:])
-	return len(b), nil
-}
-
-func (h *HomeplugFrame) length() int {
-	return 6 + len(h.Payload)
-}
-
-func (h *HomeplugFrame) UnmarshalBinary(b []byte) error {
-	if len(b) < 6 {
-		return io.ErrUnexpectedEOF
-	}
-
-	bb := make([]byte, len(b)-6)
-	copy(bb[:], b[6:])
-
-	h.Version = b[0]
-	h.MMEType = binary.LittleEndian.Uint16(b[1:])
-	copy(h.Vendor[:], b[3:])
-	h.Payload = bb
-	return nil
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, s)
 }
 
 func main() {
@@ -331,10 +288,10 @@ ChanLoop:
 }
 
 func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
-	h := &HomeplugFrame{
-		Version: hpVersion,
+	h := &QualcommHdr{
+		Version: hpavVersion1_0,
 		MMEType: nwInfoReq,
-		Vendor:  hpVendor,
+		Vendor:  ouiQualcomm,
 	}
 
 	b, err := h.MarshalBinary()
@@ -386,7 +343,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 			continue
 		}
 
-		var h HomeplugFrame
+		var h QualcommHdr
 		err = (&h).UnmarshalBinary(f.Payload)
 		if err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
@@ -398,7 +355,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 			"version", fmt.Sprintf("%#x", h.Version),
 			"mme_type", fmt.Sprintf("%#x", h.MMEType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
-			"payload", fmt.Sprintf("[% x]", h.Payload),
+			"payload", fmt.Sprintf("[% x]", f.Payload[qualcommHdrLen:]),
 		)
 
 		if h.MMEType != nwInfoCnf {
@@ -407,7 +364,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 		}
 
 		hni := HomeplugNetworkInfo{Address: f.Source}
-		if err := (&hni).UnmarshalBinary(h.Payload); err != nil {
+		if err := (&hni).UnmarshalBinary(f.Payload[qualcommHdrLen:]); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
 			continue
 		}

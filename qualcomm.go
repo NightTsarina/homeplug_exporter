@@ -1,31 +1,42 @@
 package main
 
-import "net"
+import (
+	"bytes"
+	"encoding/binary"
+)
 
 const (
-	// HPAV EtherType
-	etherType = 0x88e1
+	qualcommHdrLen = 6
 
-	hpVersion = 0
-
+	// Qualcomm vendor-specific Management Message types.
 	nwInfoReq = 0xa038
 	nwInfoCnf = 0xa039
 )
 
 var (
-	hpVendor = [...]byte{0x00, 0xb0, 0x52}
+	// Qualcomm Atheros OUI used for vendor-specific HPAV extensions.
+	ouiQualcomm = oui{0x00, 0xb0, 0x52}
 )
 
-// macAddr is a convenience type that is strictly limited to the Ethernet MAC address length,
-// unlike the standard library net.HardwareAddr type.
-type macAddr [6]byte
-
-func (m macAddr) String() string {
-	return net.HardwareAddr(m[:]).String()
+// QualcommHdr is analogous to the qualcomm_hdr struct defined by the open-plc-utils reference
+// implementation (mme/mme.h). The Qualcomm header extends the standard HomePlug AV header by
+// adding a 3-byte vendor OUI.
+type QualcommHdr struct {
+	Version uint8
+	MMEType uint16
+	Vendor  oui
 }
 
-type networkID [7]byte
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
+func (h *QualcommHdr) MarshalBinary() ([]byte, error) {
+	var b bytes.Buffer
+	if err := binary.Write(&b, binary.LittleEndian, h); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
 
-func (n networkID) String() string {
-	return net.HardwareAddr(n[:]).String()
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (h *QualcommHdr) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, h)
 }

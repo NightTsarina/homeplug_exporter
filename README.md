@@ -103,3 +103,8 @@ homeplug_station_rx_rate_bytes{device_addr="de:ad:be:ef:00:02",nid="52:de:ad:be:
 homeplug_station_tx_rate_bytes{device_addr="de:ad:be:ef:00:01",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:02"} 1.18e+06
 homeplug_station_tx_rate_bytes{device_addr="de:ad:be:ef:00:02",nid="52:de:ad:be:ef:00:01",peer_addr="de:ad:be:ef:00:01"} 1.86e+07
 ```
+
+# References
+
+- https://docbox.etsi.org/Reference/homeplug_av11/homeplug_av11_specification_final_public.pdf
+- https://github.com/qca/open-plc-utils
