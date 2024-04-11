@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
@@ -146,7 +147,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		o += 18 // size of HomeplugNetworkStatus struct
+		o += int(unsafe.Sizeof(ns))
 
 		for i := 0; i < int(ns.NumStations); i++ {
 			var ss HomeplugStationStatus
@@ -154,7 +155,7 @@ func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
 				return err
 			}
 			n.Stations = append(n.Stations, ss)
-			o += 15 // size of HomeplugStationStatus struct
+			o += int(unsafe.Sizeof(ss))
 		}
 	}
 
