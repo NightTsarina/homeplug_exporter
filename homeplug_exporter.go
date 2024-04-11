@@ -300,7 +300,7 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 		}
 
 		var h QualcommHdr
-		if err := (&h).UnmarshalBinary(f.Payload); err != nil {
+		if err := (&h).UnmarshalBinary(f.Payload[:qualcommHdrLen]); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
