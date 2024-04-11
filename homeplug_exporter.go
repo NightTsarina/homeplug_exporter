@@ -16,7 +16,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/mdlayher/ethernet"
 	"github.com/mdlayher/packet"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
@@ -291,29 +290,17 @@ ChanLoop:
 }
 
 func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
-	// The HomePlug AV specification limits the size of management messages to 1518 bytes.
-	b := make([]byte, 1518)
-
 	for {
-		conn.SetReadDeadline(time.Now().Add(time.Second))
-		n, addr, err := conn.ReadFrom(b)
+		addr, f, err := readFrame(conn)
 		if err != nil {
 			if !os.IsTimeout(err) {
-				level.Error(logger).Log("msg", "Failed to receive message", "err", err)
+				level.Error(logger).Log("msg", "failed to receive message", "err", err)
 			}
 			break
 		}
 
-		var f ethernet.Frame
-		err = (&f).UnmarshalBinary(b[:n])
-		if err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err, "from", addr)
-			continue
-		}
-
 		var h QualcommHdr
-		err = (&h).UnmarshalBinary(f.Payload)
-		if err != nil {
+		if err := (&h).UnmarshalBinary(f.Payload); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
