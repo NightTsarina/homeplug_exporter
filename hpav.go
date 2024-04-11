@@ -50,20 +50,20 @@ func (n networkID) String() string {
 // that uniquely identifies a vendor, manufacturer, or other organization.
 type oui [3]byte
 
-func readFrame(conn *packet.Conn) (net.Addr, *ethernet.Frame, error) {
+func readFrame(conn *packet.Conn) (*ethernet.Frame, error) {
 	// The HomePlug AV specification limits the size of management messages to 1518 bytes.
 	b := make([]byte, mmMaxLen)
 
 	conn.SetReadDeadline(time.Now().Add(readTimeout))
-	n, src, err := conn.ReadFrom(b)
+	n, _, err := conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var f ethernet.Frame
 	if err := (&f).UnmarshalBinary(b[:n]); err != nil {
-		return src, nil, fmt.Errorf("failed to unmarshal Ethernet frame: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal Ethernet frame: %w", err)
 	}
 
-	return src, &f, nil
+	return &f, nil
 }

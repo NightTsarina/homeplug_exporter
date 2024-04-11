@@ -292,7 +292,7 @@ ChanLoop:
 
 func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 	for {
-		addr, f, err := readFrame(conn)
+		f, err := readFrame(conn)
 		if err != nil {
 			if !os.IsTimeout(err) {
 				level.Error(logger).Log("msg", "failed to receive message", "err", err)
@@ -307,7 +307,7 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 		}
 		level.Debug(logger).Log(
 			"msg", "Received homeplug frame",
-			"from", addr,
+			"from", f.Source,
 			"version", fmt.Sprintf("%#x", h.Version),
 			"mm_type", fmt.Sprintf("%#x", h.MMType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
