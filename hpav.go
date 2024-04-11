@@ -51,7 +51,6 @@ func (n networkID) String() string {
 type oui [3]byte
 
 func readFrame(conn *packet.Conn) (*ethernet.Frame, error) {
-	// The HomePlug AV specification limits the size of management messages to 1518 bytes.
 	b := make([]byte, mmMaxLen)
 
 	conn.SetReadDeadline(time.Now().Add(readTimeout))
