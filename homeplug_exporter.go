@@ -255,7 +255,7 @@ func get_homeplug_netinfo(iface *net.Interface, conn *packet.Conn, dest net.Hard
 	seen := make(map[string]bool, 0)
 	ni := make([]HomeplugNetworkInfo, 0)
 	ch := make(chan HomeplugNetworkInfo, 1)
-	go read_homeplug(iface, conn, ch)
+	go read_homeplug(conn, ch)
 
 	if err := writeQualcommReq(iface, conn, dest, nwInfoReq); err != nil {
 		return nil, fmt.Errorf("writeQualcommReq failed: %w", err)
@@ -290,8 +290,9 @@ ChanLoop:
 	return ni, nil
 }
 
-func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
-	b := make([]byte, iface.MTU)
+func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
+	// The HomePlug AV specification limits the size of management messages to 1518 bytes.
+	b := make([]byte, 1518)
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Second))
