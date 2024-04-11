@@ -10,6 +10,12 @@ const (
 	// specification.
 	hpavVersion1_0 = 0x00 // Version 1.0
 	hpavVersion1_1 = 0x01 // Version 1.1
+
+	// Management Message Types, as defined in section 11.1.6 of the HomePlug AV specification.
+	mmTypeReq = 0b00 // Request
+	mmTypeCnf = 0b01 // Confirm
+	mmTypeInd = 0b10 // Indication
+	mmTypeRsp = 0b11 // Response
 )
 
 // macAddr is a convenience type that is strictly limited to the Ethernet MAC address length,

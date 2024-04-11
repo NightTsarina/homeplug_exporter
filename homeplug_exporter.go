@@ -325,7 +325,7 @@ func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNe
 			"payload", fmt.Sprintf("[% x]", f.Payload[qualcommHdrLen:]),
 		)
 
-		if h.MMEType != nwInfoCnf {
+		if h.MMEType != nwInfoReq|mmTypeCnf {
 			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
 			continue
 		}
