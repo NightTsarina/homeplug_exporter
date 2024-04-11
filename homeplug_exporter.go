@@ -5,17 +5,18 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/mdlayher/ethernet"
 	"github.com/mdlayher/packet"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
@@ -130,49 +131,52 @@ type HomeplugNetworkInfo struct {
 }
 
 func (n *HomeplugNetworkInfo) UnmarshalBinary(b []byte) error {
-	o := 0
+	if len(b) == 0 {
+		return io.ErrUnexpectedEOF
+	}
 
-	var num_networks = int(b[o])
-	o++
-	for i := 0; i < num_networks; i++ {
+	// Number of AV logical networks.
+	numNetworks := int(b[0])
+
+	// Start offset of network / station data.
+	o := 1
+
+	for i := 0; i < numNetworks; i++ {
 		var ns HomeplugNetworkStatus
-		size, err := (&ns).UnmarshalBinary(b[o:])
-		if err != nil {
+		if err := (&ns).UnmarshalBinary(b[o:]); err != nil {
 			return err
 		}
 		n.Networks = append(n.Networks, ns)
-		o += size
+		o += int(unsafe.Sizeof(ns))
 
-		var num_stations = int(b[o])
-		o++
-
-		for i := 0; i < num_stations; i++ {
+		for i := 0; i < int(ns.NumStations); i++ {
 			var ss HomeplugStationStatus
 			if err := (&ss).UnmarshalBinary(b[o:]); err != nil {
 				return err
 			}
 			n.Stations = append(n.Stations, ss)
-			o += 15 // size of HomeplugStationStatus struct
+			o += int(unsafe.Sizeof(ss))
 		}
 	}
 
 	return nil
 }
 
+// HomeplugNetworkStatus is analogous to the network struct defined in the open-plc-utils
+// reference implementation (plc/NetInfo1.c).
 type HomeplugNetworkStatus struct {
-	NetworkID  networkID
-	ShortID    uint8
-	TEI        uint8
-	Role       uint8
-	CCoAddress macAddr
-	CCoTEI     uint8
+	NetworkID   networkID
+	ShortID     uint8
+	TEI         uint8
+	Role        uint8
+	CCoAddress  macAddr
+	CCoTEI      uint8
+	NumStations uint8
 }
 
-func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) (int, error) {
-	if err := binary.Read(bytes.NewReader(b), binary.LittleEndian, s); err != nil {
-		return len(b), err
-	}
-	return 17, nil
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (s *HomeplugNetworkStatus) UnmarshalBinary(b []byte) error {
+	return binary.Read(bytes.NewReader(b), binary.LittleEndian, s)
 }
 
 type HomeplugStationStatus struct {
@@ -251,11 +255,10 @@ func get_homeplug_netinfo(iface *net.Interface, conn *packet.Conn, dest net.Hard
 	seen := make(map[string]bool, 0)
 	ni := make([]HomeplugNetworkInfo, 0)
 	ch := make(chan HomeplugNetworkInfo, 1)
-	go read_homeplug(iface, conn, ch)
+	go read_homeplug(conn, ch)
 
-	err := write_homeplug(iface, conn, dest)
-	if err != nil {
-		return nil, fmt.Errorf("write_homeplug failed: %w", err)
+	if err := writeQualcommReq(iface, conn, dest, nwInfoReq); err != nil {
+		return nil, fmt.Errorf("writeQualcommReq failed: %w", err)
 	}
 
 ChanLoop:
@@ -270,8 +273,8 @@ ChanLoop:
 			seen[addr] = true
 			// Query each remote station directly.
 			for _, station := range n.Stations {
-				if err := write_homeplug(iface, conn, net.HardwareAddr(station.Address[:])); err != nil {
-					return nil, fmt.Errorf("write_homeplug failed: %w", err)
+				if err := writeQualcommReq(iface, conn, net.HardwareAddr(station.Address[:]), nwInfoReq); err != nil {
+					return nil, fmt.Errorf("writeQualcommReq failed: %w", err)
 				}
 			}
 
@@ -287,79 +290,32 @@ ChanLoop:
 	return ni, nil
 }
 
-func write_homeplug(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr) error {
-	h := &QualcommHdr{
-		Version: hpavVersion1_0,
-		MMEType: nwInfoReq,
-		Vendor:  ouiQualcomm,
-	}
-
-	b, err := h.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("failed to marshal homeplug frame: %w", err)
-	}
-
-	f := &ethernet.Frame{
-		Destination: dest,
-		Source:      iface.HardwareAddr,
-		EtherType:   etherType,
-		Payload:     b,
-	}
-
-	a := &packet.Addr{
-		HardwareAddr: dest,
-	}
-
-	b, err = f.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("failed to marshal ethernet frame: %w", err)
-	}
-
-	_, err = conn.WriteTo(b, a)
-	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
-	}
-
-	return nil
-}
-
-func read_homeplug(iface *net.Interface, conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
-	b := make([]byte, iface.MTU)
-
+func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 	for {
-		conn.SetReadDeadline(time.Now().Add(time.Second))
-		n, addr, err := conn.ReadFrom(b)
+		f, err := readFrame(conn)
 		if err != nil {
 			if !os.IsTimeout(err) {
-				level.Error(logger).Log("msg", "Failed to receive message", "err", err)
+				level.Error(logger).Log("msg", "failed to receive message", "err", err)
 			}
 			break
 		}
 
-		var f ethernet.Frame
-		err = (&f).UnmarshalBinary(b[:n])
-		if err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal ethernet frame", "err", err, "from", addr)
-			continue
-		}
-
 		var h QualcommHdr
-		err = (&h).UnmarshalBinary(f.Payload)
-		if err != nil {
+		if err := (&h).UnmarshalBinary(f.Payload[:qualcommHdrLen]); err != nil {
 			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
 		level.Debug(logger).Log(
 			"msg", "Received homeplug frame",
-			"from", addr,
+			"from", f.Source,
 			"version", fmt.Sprintf("%#x", h.Version),
-			"mme_type", fmt.Sprintf("%#x", h.MMEType),
+			"mm_type", fmt.Sprintf("%#x", h.MMType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
 			"payload", fmt.Sprintf("[% x]", f.Payload[qualcommHdrLen:]),
 		)
 
-		if h.MMEType != nwInfoCnf {
-			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
+		if h.MMType != nwInfoReq|mmTypeCnf {
+			level.Error(logger).Log("msg", "Got unhandled MM type", "mm_type", fmt.Sprintf("%#x", h.MMType))
 			continue
 		}
 
