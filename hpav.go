@@ -13,6 +13,10 @@ const (
 	// HomePlug AV EtherType, as defined in section 11.1.4 of the HomePlug AV specification.
 	etherType = 0x88e1
 
+	// Management message maximum length, as defined in section 11.1.7 of the HomePlug AV
+	// specification, which is also ETHER_MAX_LEN as per <net/ethernet.h>.
+	mmMaxLen = 1518
+
 	// HomePlug AV management message versions, as defined in section 11.1.5 of the HomePlug AV
 	// specification.
 	hpavVersion1_0 = 0x00 // Version 1.0
@@ -48,7 +52,7 @@ type oui [3]byte
 
 func readFrame(conn *packet.Conn) (net.Addr, *ethernet.Frame, error) {
 	// The HomePlug AV specification limits the size of management messages to 1518 bytes.
-	b := make([]byte, 1518)
+	b := make([]byte, mmMaxLen)
 
 	conn.SetReadDeadline(time.Now().Add(readTimeout))
 	n, src, err := conn.ReadFrom(b)
