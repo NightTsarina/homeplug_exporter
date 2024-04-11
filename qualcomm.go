@@ -27,7 +27,7 @@ var (
 // adding a 3-byte vendor OUI.
 type QualcommHdr struct {
 	Version uint8
-	MMEType uint16
+	MMType  uint16
 	Vendor  oui
 }
 
@@ -49,7 +49,7 @@ func (h *QualcommHdr) UnmarshalBinary(b []byte) error {
 func writeQualcommReq(iface *net.Interface, conn *packet.Conn, dest net.HardwareAddr, mmType uint16) error {
 	hdr := QualcommHdr{
 		Version: hpavVersion1_0,
-		MMEType: mmType,
+		MMType:  mmType,
 		Vendor:  ouiQualcomm,
 	}
 

@@ -12,7 +12,7 @@ func TestQualcommHdr(t *testing.T) {
 
 	want := QualcommHdr{
 		Version: hpavVersion1_0,
-		MMEType: nwInfoReq | mmTypeCnf,
+		MMType:  nwInfoReq | mmTypeCnf,
 		Vendor:  ouiQualcomm,
 	}
 

@@ -308,13 +308,13 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 			"msg", "Received homeplug frame",
 			"from", addr,
 			"version", fmt.Sprintf("%#x", h.Version),
-			"mme_type", fmt.Sprintf("%#x", h.MMEType),
+			"mm_type", fmt.Sprintf("%#x", h.MMType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
 			"payload", fmt.Sprintf("[% x]", f.Payload[qualcommHdrLen:]),
 		)
 
-		if h.MMEType != nwInfoReq|mmTypeCnf {
-			level.Error(logger).Log("msg", "Got unhandled MME type", "mme_type", h.MMEType)
+		if h.MMType != nwInfoReq|mmTypeCnf {
+			level.Error(logger).Log("msg", "Got unhandled MM type", "mm_type", fmt.Sprintf("%#x", h.MMType))
 			continue
 		}
 
