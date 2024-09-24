@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -15,14 +16,12 @@ import (
 	"unsafe"
 
 	"github.com/alecthomas/kingpin/v2"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/mdlayher/packet"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/promslog"
+	"github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 )
@@ -40,7 +39,7 @@ var (
 	destAddress      = MacAddress(kingpin.Flag("destaddr", "Destination MAC address for Homeplug devices. Accepts 'local', 'all', and 'broadcast' as aliases.").
 				Default("local").HintOptions("local", "all", "broadcast"))
 
-	logger log.Logger
+	logger *slog.Logger
 )
 
 type Exporter struct {
@@ -88,7 +87,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	defer e.mutex.Unlock()
 	err := e.collect(ch)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error scraping Homeplug", "err", err)
+		logger.Error("Error scraping Homeplug", "err", err)
 	}
 }
 
@@ -193,27 +192,27 @@ func (s *HomeplugStationStatus) UnmarshalBinary(b []byte) error {
 }
 
 func main() {
-	promlogConfig := &promlog.Config{}
+	promslogConfig := &promslog.Config{}
 
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
+	flag.AddFlags(kingpin.CommandLine, promslogConfig)
 	kingpin.Version(version.Print("homeplug_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 
-	logger = promlog.New(promlogConfig)
+	logger = promslog.New(promslogConfig)
 
-	level.Info(logger).Log("msg", "Starting homeplug_exporter", "version", version.Info())
-	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
+	logger.Info("Starting homeplug_exporter", "version", version.Info())
+	logger.Info("Build context", "build_context", version.BuildContext())
 
 	iface, err := getListenerInterface(*interfaceName)
 	if err != nil {
-		level.Error(logger).Log("msg", "Failed to get interface", "err", err)
+		logger.Error("Failed to get interface", "err", err)
 		os.Exit(1)
 	}
 
 	conn, err := packet.Listen(iface, packet.Raw, etherType, nil)
 	if err != nil {
-		level.Error(logger).Log("msg", "Failed to listen", "err", err)
+		logger.Error("Failed to listen on socket", "err", err)
 		os.Exit(1)
 	}
 
@@ -221,8 +220,8 @@ func main() {
 	prometheus.MustRegister(exporter)
 	prometheus.MustRegister(versioncollector.NewCollector("homeplug_exporter"))
 
-	level.Info(logger).Log("msg", "Collector parameters", "destaddr", destAddress, "interface", iface.Name)
-	level.Info(logger).Log("msg", "Starting HTTP server", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
+	logger.Info("Collector parameters", "destaddr", destAddress, "interface", iface.Name)
+	logger.Info("Starting HTTP server", "telemetry.address", *listeningAddress, "telemetry.endpoint", *metricsEndpoint)
 
 	http.Handle(*metricsEndpoint, promhttp.Handler())
 	if *metricsEndpoint != "/" {
@@ -239,14 +238,14 @@ func main() {
 		}
 		landingPage, err := web.NewLandingPage(landingConfig)
 		if err != nil {
-			level.Error(logger).Log("err", err)
+			logger.Error(err.Error())
 			os.Exit(1)
 		}
 		http.Handle("/", landingPage)
 	}
 
 	if err := http.ListenAndServe(*listeningAddress, nil); err != nil {
-		level.Error(logger).Log("msg", "Failed to bind HTTP server", "err", err)
+		logger.Error("Failed to bind HTTP server", "err", err)
 		os.Exit(1)
 	}
 }
@@ -295,19 +294,19 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 		f, err := readFrame(conn)
 		if err != nil {
 			if !os.IsTimeout(err) {
-				level.Error(logger).Log("msg", "failed to receive message", "err", err)
+				logger.Error("Failed to receive message", "err", err)
 			}
 			break
 		}
 
 		var h QualcommHdr
 		if err := (&h).UnmarshalBinary(f.Payload[:qualcommHdrLen]); err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal homeplug frame", "err", err)
+			logger.Error("Failed to unmarshal homeplug frame", "err", err)
 			continue
 		}
-		level.Debug(logger).Log(
-			"msg", "Received homeplug frame",
-			"from", f.Source,
+		logger.Debug(
+			"Received homeplug frame",
+			"from", f.Source.String(),
 			"version", fmt.Sprintf("%#x", h.Version),
 			"mm_type", fmt.Sprintf("%#x", h.MMType),
 			"vendor", fmt.Sprintf("%#x", h.Vendor),
@@ -315,24 +314,24 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 		)
 
 		if h.MMType != nwInfoReq|mmTypeCnf {
-			level.Error(logger).Log("msg", "Got unhandled MM type", "mm_type", fmt.Sprintf("%#x", h.MMType))
+			logger.Error("Got unhandled MM type", "mm_type", fmt.Sprintf("%#x", h.MMType))
 			continue
 		}
 
 		hni := HomeplugNetworkInfo{Address: f.Source}
 		if err := (&hni).UnmarshalBinary(f.Payload[qualcommHdrLen:]); err != nil {
-			level.Error(logger).Log("msg", "Failed to unmarshal network info frame", "err", err)
+			logger.Error("Failed to unmarshal network info frame", "err", err)
 			continue
 		}
 		if len(hni.Networks) == 0 {
-			level.Error(logger).Log("msg", "Ignoring isolated device", "device_addr", hni.Address)
+			logger.Error("Ignoring isolated device", "device_addr", hni.Address.String())
 			continue
 		}
 
 		for _, network := range hni.Networks {
-			level.Debug(logger).Log(
-				"msg", "Network found",
-				"device_addr", hni.Address,
+			logger.Debug(
+				"Network found",
+				"device_addr", hni.Address.String(),
 				"nid", network.NetworkID,
 				"snid", network.ShortID,
 				"tei", network.TEI,
@@ -342,9 +341,9 @@ func read_homeplug(conn *packet.Conn, ch chan<- HomeplugNetworkInfo) {
 			)
 		}
 		for _, station := range hni.Stations {
-			level.Debug(logger).Log(
-				"msg", "Connected station found",
-				"device_addr", hni.Address,
+			logger.Debug(
+				"Connected station found",
+				"device_addr", hni.Address.String(),
 				"peer_addr", station.Address,
 				"bda", station.BridgedAddress,
 				"tx_rate", station.TxRate,
